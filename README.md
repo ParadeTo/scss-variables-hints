@@ -12,7 +12,7 @@
 Simple extension for geting hints for css-variables from selected files. You can trigger it by typing `--`.
 一个简单的`css-variables`变量的提示插件,通过输入`--`触发。
 
-![Demo](img\demo.gif)
+![Demo](https://github.com/airbender92/css-variables-hints/blob/master/img/demo.gif)
 
 Be sure that you have one of supported language modes selected in right bottom of your vscode window:
 * css
@@ -28,7 +28,7 @@ Create or modify file `.vscode/settings.json`. Folder `.vscode` should be in you
 Minimal configuration file:
 ```
 {
-  "cssVarriablesAutocomplete.files": [ "variables.css" ],
+  "cssVarriablesHints.files": [ "variables.css" ],
 }
 ```
 

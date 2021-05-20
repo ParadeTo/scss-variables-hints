@@ -7,7 +7,7 @@
 	"icon": "img/favicon.ico",
 	"repository": {
 		"type": "git",
-		"url": ""
+		"url": "https://github.com/airbender92/css-variables-hints"
 	},
 	"engines": {
 		"vscode": "^1.56.2"
@@ -27,7 +27,7 @@
 		"configuration": {
 			"title": "CSS Variables hints",
 			"properties": {
-				"cssVarriablesAutocomplete.files": {
+				"cssVarriablesHints.files": {
 					"type": "array",
 					"description": "Array of paths to files with css variables"
 				}

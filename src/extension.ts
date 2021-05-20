@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
 		return;
 	}
 
-	const config = vscode.workspace.getConfiguration('cssVarriablesAutocomplete');
+	const config = vscode.workspace.getConfiguration('cssVarriablesHints');
 	const hasFilesInConfig = config && config.has('files');
 
 	// no config or specified files
