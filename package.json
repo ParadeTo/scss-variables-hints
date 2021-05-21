@@ -58,6 +58,7 @@
 		"vscode-test": "^1.5.0"
 	},
 	"dependencies": {
+		"axios": "^0.21.1",
 		"css": "^3.0.0",
 		"scss-parser": "^1.0.4",
 		"strip-comments": "^2.0.1"

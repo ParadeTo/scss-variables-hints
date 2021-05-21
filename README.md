@@ -2,7 +2,7 @@
  * @Author: wangyunbo
  * @Date: 2021-05-19 23:57:46
  * @LastEditors: wangyunbo
- * @LastEditTime: 2021-05-20 17:15:00
+ * @LastEditTime: 2021-05-21 10:57:55
  * @Description: file content
  * @FilePath: \css-variables-hints\README.md
 -->
@@ -35,3 +35,23 @@ Minimal configuration file:
 This extension contributes the following configuration parameters:
 
 * `files`: array of paths to files with css variables
+
+### 用法：   
+![Demo](img/demo.gif) 
+1. 搜索插件名：`css-variables-hints`, 并安装。
+2. 修改项目根目录下的`.vscode/settings.json`：    
+```javascript
+{
+  ...
+  "cssVarriablesHints.files": ["样式变量文件路径1", "路径2" ],
+  ...
+};
+// 譬如：
+{
+  ...
+  "cssVarriablesHints.files": ["node_modules//hatech-web-theme-darkblue//lib//export.scss" ],
+  ...
+};
+```
+3. 在vue文件中写样式的时候，通过`--`触发提示，如果没有提示，(1)重启编辑器试下，(2)检查下`.vscode/settings.json`配置是否不正确。
+4. 具体用法看demo图
