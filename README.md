@@ -2,7 +2,7 @@
  * @Author: wangyunbo
  * @Date: 2021-05-19 23:57:46
  * @LastEditors: wangyunbo
- * @LastEditTime: 2021-05-21 17:16:22
+ * @LastEditTime: 2021-05-21 17:33:14
  * @Description: file content
  * @FilePath: \css-variables-hints\README.md
 -->
@@ -50,8 +50,8 @@ This extension contributes the following configuration parameters:
 ![Demo](img/demo.gif) 
 ### 用法：   
 
-1. 搜索插件名：`css-variables-hints`, 并安装。
-2. 修改项目根目录下的`.vscode/settings.json`：    
+1. 搜索插件名：`css-variables-hints`, 并安装。    
+2. 修改项目根目录下的`.vscode/settings.json`：        
 ```javascript
 {
   ...
@@ -67,8 +67,8 @@ This extension contributes the following configuration parameters:
   ...
 };
 ```
-`cssVarriablesHints.files` 和 `cssVarriablesHints.remoteFiles` 可都配置也可任选一个配置.
-3. 本地和远端的重名变量做了去重操作（本地变量覆盖远端同名变量）
-4. 在vue文件中写样式的时候，通过`--`触发提示，如果没有提示，(1)重启编辑器试下，(2)检查下`.vscode/settings.json`配置是否不正确。
-5. 具体用法看demo图，
+`cssVarriablesHints.files` 和 `cssVarriablesHints.remoteFiles` 可都配置也可任选一个配置.    
+3. 本地和远端的重名变量做了去重操作（本地变量覆盖远端同名变量）    
+4. 在vue文件中写样式的时候，通过`--`触发提示，如果没有提示，(1)重启编辑器试下，(2)检查下`.vscode/settings.json`配置是否不正确。    
+5. 具体用法看demo图.    
 
