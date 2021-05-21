@@ -30,6 +30,10 @@
 				"cssVarriablesHints.files": {
 					"type": "array",
 					"description": "Array of paths to files with css variables"
+				},
+				"cssVarriablesHints.remoteFiles": {
+					"type": "array",
+					"description": "Array of paths to remotefiles with css variables"
 				}
 			}
 		}

@@ -2,7 +2,7 @@
  * @Author: wangyunbo
  * @Date: 2021-05-19 23:57:46
  * @LastEditors: wangyunbo
- * @LastEditTime: 2021-05-20 17:19:15
+ * @LastEditTime: 2021-05-21 12:13:51
  * @Description: file content
  * @FilePath: \css-variables-hints\src\extension.ts
  */
@@ -29,52 +29,18 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const config = vscode.workspace.getConfiguration('cssVarriablesHints');
 	const hasFilesInConfig = config && config.has('files');
+	const hasRemoteFilesInConfig = config && config.has('remoteFiles');
 
 	// no config or specified files
-	if (!config || !hasFilesInConfig) {
+	if (!config || !(hasFilesInConfig || hasRemoteFilesInConfig)) {
 		return;
 	}
 
 	const configFiles: Array<string> = config.get('files') || [];
+	const remoteConfigFiles: Array<string> = config.get('remoteFiles') || [];
 	const configLanguageMods: Array<string> = config.get('languageModes') || [];
-
-	configFiles.forEach((filePath) => {
-		let file = fs.readFileSync(path.join(folderPath, filePath), { encoding: 'utf8' });
-		file = strip(file);
-		const cssParsed = css.parse(file);
-		const rootRule: Rule | undefined = cssParsed.stylesheet?.rules.find((rule: Rule) => {
-			const isRuleType = rule.type = 'rule';
-			const rootSelectors = [':export', ':root'];
-			const hasRootSelector = rule?.selectors?.some(selector => rootSelectors.includes(selector));
-
-			return Boolean(isRuleType && hasRootSelector);
-		});
-
-		const declarations = rootRule?.declarations;
-		const variables = declarations?.filter((declaration: Declaration) => {
-			return Boolean(
-				declaration.type === 'declaration' &&
-				declaration?.property?.startsWith('--')
-			);
-		});
-
-		variables?.forEach((variable: Declaration) => {
-			// For use when the user has already typed `var(`
-			const completionItemBare = new CompletionItem(variable.property!, vscode.CompletionItemKind.Variable);
-			completionItemBare.detail = variable.value;
-			completionItemBare.insertText = variable.property;
-			bareItems.push(completionItemBare);
-
-			const completionItem = new CompletionItem(variable.property!, vscode.CompletionItemKind.Variable);
-
-			completionItem.detail = variable.value;
-			completionItem.insertText = `var(${variable.property})`;
-			completionItem.keepWhitespace = true;
-
-			items.push(completionItem);
-		});
-
-	});
+	handleConfigFiles(configFiles, folderPath, bareItems, items)
+	
 
 	let completionProvider = vscode.languages.registerCompletionItemProvider(
 		configLanguageMods.length ? configLanguageMods : ['css', 'postcss', 'scss', 'less', 'vue'],
@@ -114,4 +80,44 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(completionProvider);
+}
+
+function handleConfigFiles(configFiles: string[], folderPath: string,bareItems:vscode.CompletionItem[], items:vscode.CompletionItem[]) {
+	configFiles.forEach((filePath) => {
+		let file = fs.readFileSync(path.join(folderPath, filePath), { encoding: 'utf8' });
+		file = strip(file);
+		const cssParsed = css.parse(file);
+		const rootRule: Rule | undefined = cssParsed.stylesheet?.rules.find((rule: Rule) => {
+			const isRuleType = rule.type = 'rule';
+			const rootSelectors = [':export', ':root'];
+			const hasRootSelector = rule?.selectors?.some(selector => rootSelectors.includes(selector));
+
+			return Boolean(isRuleType && hasRootSelector);
+		});
+
+		const declarations = rootRule?.declarations;
+		const variables = declarations?.filter((declaration: Declaration) => {
+			return Boolean(
+				declaration.type === 'declaration' &&
+				declaration?.property?.startsWith('--')
+			);
+		});
+
+		variables?.forEach((variable: Declaration) => {
+			// For use when the user has already typed `var(`
+			const completionItemBare = new CompletionItem(variable.property!, vscode.CompletionItemKind.Variable);
+			completionItemBare.detail = variable.value;
+			completionItemBare.insertText = variable.property;
+			bareItems.push(completionItemBare);
+
+			const completionItem = new CompletionItem(variable.property!, vscode.CompletionItemKind.Variable);
+
+			completionItem.detail = variable.value;
+			completionItem.insertText = `var(${variable.property})`;
+			completionItem.keepWhitespace = true;
+
+			items.push(completionItem);
+		});
+
+	});
 }
