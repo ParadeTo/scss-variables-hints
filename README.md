@@ -59,7 +59,7 @@ This extension contributes the following configuration parameters:
   "cssVarriablesHints.files": ["src\\theme\\variables.scss"],
   // 远端资源变量文件配置列表
   "cssVarriablesHints.remoteFiles": [{
-    "projectId": 8888  //gitlab项目id号,
+    "projectId": 8888,  //gitlab项目id号,
     "filePath": "lib/export.scss", // gitlab上变量资源的文件路径
     "token": "access token", // token
     "origin": "http://xxxx:8888" // origin
