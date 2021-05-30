@@ -47,10 +47,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 处理本地变量
 	handleConfigFiles(configFiles, folderPath, bareItems, items);
 	// 处理远端变量文件
-	const remoteFiles = await handleRemoteConfigFiles(remoteConfigFiles)
-	remoteFiles.forEach(file => {
-		handleCompletionItem(file, bareItems, items)
-	})
+	let remoteFiles = [];
+	try{
+		remoteFiles	= await handleRemoteConfigFiles(remoteConfigFiles)
+		remoteFiles.forEach(file => {
+			handleCompletionItem(file, bareItems, items)
+		})
+	} catch(err) {
+		vscode.window.showInformationMessage(err.message)
+		console.error('读取远端文件错误：', err)
+	}
+	
 
 	let completionProvider = vscode.languages.registerCompletionItemProvider(
 		configLanguageMods.length ? configLanguageMods : ['css', 'postcss', 'scss', 'less', 'vue'],
@@ -107,8 +114,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
 function handleConfigFiles(configFiles: string[], folderPath: string, bareItems: vscode.CompletionItem[], items: vscode.CompletionItem[]) {
 	configFiles.forEach((filePath) => {
-		let file = fs.readFileSync(path.join(folderPath, filePath), { encoding: 'utf8' });
-		handleCompletionItem(file, bareItems, items)
+		let file = null;
+		try{
+		 file = fs.readFileSync(path.join(folderPath, filePath), { encoding: 'utf8' });
+		 handleCompletionItem(file, bareItems, items)
+		} catch(err) {
+			let str = '';
+			const message = err.message;
+			const stack = err.stack;
+			const config = JSON.stringify(err.config || {});
+			str = `error.message: ${message}\r\n
+					error.stack: ${stack}\r\n
+					error.config: ${config}`
+			vscode.window.showInformationMessage(str)
+			console.error('读取文件错误：', err)
+		}
 	});
 }
 // 处理远端文件（当前只针对gitlab）
@@ -130,6 +150,15 @@ async function handleRemoteConfigFiles(configFiles: any[]): Promise<any[]> {
 				rawRemoteFiles.push(fileContent)
 			}
 		} catch (err) {
+			let str = '';
+			const message = err.message;
+			const stack = err.stack;
+			const config = JSON.stringify(err.config || {});
+			str = `error.message: ${message}\r\n
+					error.stack: ${stack}\r\n
+					error.config: ${config}`
+			vscode.window.showInformationMessage(str)
+			console.error('读取远端文件错误：', err)
 			continue;
 		}
 	};
