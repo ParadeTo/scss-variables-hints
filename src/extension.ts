@@ -2,7 +2,7 @@
  * @Author: wangyunbo
  * @Date: 2021-05-19 23:57:46
  * @LastEditors: wangyunbo
- * @LastEditTime: 2021-05-21 17:03:30
+ * @LastEditTime: 2021-05-31 13:51:59
  * @Description: file content
  * @FilePath: \css-variables-hints\src\extension.ts
  */
@@ -88,18 +88,19 @@ export async function activate(context: vscode.ExtensionContext) {
 				let dashPosition = null;
 				let dashPosition2 = null;
 				let range: vscode.Range | null = null;
+				let linePrefix = '';
 				if (withIndentBeforeCursorText.endsWith('--')) {
 					dashPosition = new vscode.Position(position.line, withIndentBeforeCursorText.lastIndexOf('--'));
 					dashPosition2 = new vscode.Position(position.line, withIndentBeforeCursorText.lastIndexOf('--') + 2);
 					range = new vscode.Range(dashPosition, dashPosition2);
 				}
 				completionItems = completionItems.map(item => {
-					if (range === null || document.languageId !== 'vue') {
+					if (range === null) {
 						return item
 					} else {
 						return {
 							...item,
-							additionalTextEdits: [vscode.TextEdit.delete(range)]
+							range
 						}
 					}
 				})
@@ -200,7 +201,6 @@ function handleCompletionItem(file: any, bareItems: vscode.CompletionItem[], ite
 
 		completionItem.detail = variable.value;
 		completionItem.insertText = `var(${variable.property})`;
-		completionItem.keepWhitespace = true;
 
 		items.push(completionItem);
 	});
