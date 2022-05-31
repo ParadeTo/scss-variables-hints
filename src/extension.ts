@@ -2,206 +2,215 @@
  * @Author: wangyunbo
  * @Date: 2021-05-19 23:57:46
  * @LastEditors: wangyunbo
- * @LastEditTime: 2021-05-31 13:51:59
+ * @LastEditTime: 2021-05-31 14:01:06
  * @Description: file content
- * @FilePath: \css-variables-hints\src\extension.ts
+ * @FilePath: \hatech-web-css-hints\src\extension.ts
  */
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as css from 'css';
 import * as strip from 'strip-comments';
-import { decode } from 'js-base64';
-
+import SourceFiles from './handleSource';
 import type { Rule, Declaration } from 'css';
-import axios from 'axios';
 
-const { CompletionItem, CompletionList } = vscode
+const { CompletionItem, CompletionList } = vscode;
 
 export async function activate(context: vscode.ExtensionContext) {
-	// 存放提示(暂时未区分远端的资源和本地的资源，都放在一起)
-	const items: vscode.CompletionItem[] = [];
-	const bareItems: vscode.CompletionItem[] = [];
-	const workspaceFolder = vscode.workspace.workspaceFolders || [];
-	const folderPath = workspaceFolder[0]?.uri.fsPath;
+  const items: vscode.CompletionItem[] = [];
+  const bareItems: vscode.CompletionItem[] = [];
+  // workspace not selected
+  if (!vscode.workspace.workspaceFolders) {
+    return;
+  }
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || !vscode.workspace.workspaceFolders) {
+    return null;
+  }
 
-	// workspace not selected
-	if (!vscode.workspace.workspaceFolders) {
-		return;
-	}
+  const config = vscode.workspace.getConfiguration('cssVarriablesHints');
+  const configLanguageMods: Array<string> = config.get('languageModes') || [];
+  // 处理本地变量
+  handleConfigFiles(editor, bareItems, items);
+  let completionProvider = vscode.languages.registerCompletionItemProvider(
+    configLanguageMods.length
+      ? configLanguageMods
+      : ['css', 'postcss', 'scss', 'less', 'vue'],
+    {
+      async provideCompletionItems(document, position) {
+        try {
+          let linePrefix = document
+            .lineAt(position)
+            .text.substring(0, position.character);
+          let lineContent = document
+            .lineAt(position)
+            .text.substring(0);
+          const firstCharOfLinePosition = new vscode.Position(position.line, 0);
+          const withIndentBeforeCursorText =
+            document.getText(
+              new vscode.Range(firstCharOfLinePosition, position)
+            ) || '';
+          const list = withIndentBeforeCursorText.split(':');
+          let beforeCursorText = '';
+          if (list.length > 1) {
+            beforeCursorText = list[1].trim();
+          } else {
+            beforeCursorText = list[0].trim();
+          }
+          if (!/(#|-)/.test(linePrefix)) {
+            return null;
+          }
 
-	const config = vscode.workspace.getConfiguration('cssVarriablesHints');
-	// 本地资源文件
-	const hasFilesInConfig = config && config.has('files');
-	// 远端资源文件
-	const hasRemoteFilesInConfig = config && config.has('remoteFiles');
+          let completionItems: vscode.CompletionItem[] = /^#/.test(beforeCursorText)
+            ? bareItems
+            : items;
+          let dashPosition = null;
+          let dashPosition2 = null;
+          let range: vscode.Range | null = null;
+          if (beforeCursorText.startsWith('#')) {
+            dashPosition = new vscode.Position(
+              position.line,
+              withIndentBeforeCursorText.indexOf('#')
+            );
+            dashPosition2 = new vscode.Position(
+              position.line,
+              lineContent.length
+            );
+            range = new vscode.Range(dashPosition, dashPosition2);
+          } else if (beforeCursorText.startsWith('-')) {
+            dashPosition = new vscode.Position(
+              position.line,
+              withIndentBeforeCursorText.lastIndexOf('-')
+            );
+            dashPosition2 = new vscode.Position(
+              position.line,
+              lineContent.length
+            );
+            range = new vscode.Range(dashPosition, dashPosition2);
+          }
+          completionItems = completionItems.map((item) => {
+            if (range === null) {
+              return item;
+            } else {
+              return {
+                ...item,
+                range,
+              };
+            }
+          });
+          return new CompletionList(completionItems);
+        } catch (err) {
+          console.log(err);
+        }
+      },
+    },
+    ...['-', '#']
+  );
 
-	// no config or specified files
-	if (!config || !(hasFilesInConfig || hasRemoteFilesInConfig)) {
-		return;
-	}
-
-	const configFiles: Array<string> = config.get('files') || [];
-	const remoteConfigFiles: Array<string> = config.get('remoteFiles') || [];
-	const configLanguageMods: Array<string> = config.get('languageModes') || [];
-	// 处理本地变量
-	handleConfigFiles(configFiles, folderPath, bareItems, items);
-	// 处理远端变量文件
-	let remoteFiles = [];
-	try{
-		remoteFiles	= await handleRemoteConfigFiles(remoteConfigFiles)
-		remoteFiles.forEach(file => {
-			handleCompletionItem(file, bareItems, items)
-		})
-	} catch(err) {
-		vscode.window.showInformationMessage(err.message)
-		console.error('读取远端文件错误：', err)
-	}
-	
-
-	let completionProvider = vscode.languages.registerCompletionItemProvider(
-		configLanguageMods.length ? configLanguageMods : ['css', 'postcss', 'scss', 'less', 'vue'],
-		{
-			async provideCompletionItems(document, position) {
-				const firstCharOfLinePosition = new vscode.Position(position.line, 0);
-				const withIndentBeforeCursorText = document.getText(new vscode.Range(firstCharOfLinePosition, position)) || '';
-				const beforeCursorText = withIndentBeforeCursorText.trim();
-				if (!beforeCursorText.match(/--([\w-]*)/)) {
-					return null;
-				}
-				// 变量去重
-				let dedup_bareItems = bareItems.reduce((finalItems: vscode.CompletionItem[], curItem: vscode.CompletionItem) => {
-					if (!finalItems.some(item => item.label === curItem.label)) {
-						finalItems.push(curItem)
-					}
-					return finalItems
-				}, []);
-
-				let dedup_items = items.reduce((finalItems: vscode.CompletionItem[], curItem: vscode.CompletionItem) => {
-					if (!finalItems.some(item => item.label === curItem.label)) {
-						finalItems.push(curItem)
-					}
-					return finalItems
-				}, [])
-
-				let completionItems: vscode.CompletionItem[] = beforeCursorText.match(/var\(--([\w-]*)/) ? dedup_bareItems : dedup_items;
-				let dashPosition = null;
-				let dashPosition2 = null;
-				let range: vscode.Range | null = null;
-				let linePrefix = '';
-				if (withIndentBeforeCursorText.endsWith('--')) {
-					dashPosition = new vscode.Position(position.line, withIndentBeforeCursorText.lastIndexOf('--'));
-					dashPosition2 = new vscode.Position(position.line, withIndentBeforeCursorText.lastIndexOf('--') + 2);
-					range = new vscode.Range(dashPosition, dashPosition2);
-				}
-				completionItems = completionItems.map(item => {
-					if (range === null) {
-						return item
-					} else {
-						return {
-							...item,
-							range
-						}
-					}
-				})
-				return new CompletionList(completionItems);
-			},
-		},
-		'-', '-'
-	);
-
-	context.subscriptions.push(completionProvider);
+  context.subscriptions.push(completionProvider);
 }
 
-function handleConfigFiles(configFiles: string[], folderPath: string, bareItems: vscode.CompletionItem[], items: vscode.CompletionItem[]) {
-	configFiles.forEach((filePath) => {
-		let file = null;
-		try{
-		 file = fs.readFileSync(path.join(folderPath, filePath), { encoding: 'utf8' });
-		 handleCompletionItem(file, bareItems, items)
-		} catch(err) {
-			let str = '';
-			const message = err.message;
-			const stack = err.stack;
-			const config = JSON.stringify(err.config || {});
-			str = `error.message: ${message}\r\n
+function handleConfigFiles(
+  editor: any,
+  bareItems: vscode.CompletionItem[],
+  items: vscode.CompletionItem[]
+) {
+  let folderPath = '';
+  let relativeFolderPath = '';
+    const resource = editor.document.uri;
+    const config = vscode.workspace.getConfiguration('cssVarriablesHints');
+  // 本地资源文件
+  const hasFilesInConfig = config && config.has('file');
+  if (hasFilesInConfig) {
+    const configFile: { folderPath: string } | undefined = config.get('file');
+    if (typeof configFile === 'object') {
+      relativeFolderPath = configFile.folderPath || '';
+      if (resource.scheme === 'file') {
+      const folder: any = vscode.workspace.getWorkspaceFolder(resource);
+      if (folder) {
+        folderPath = folder.uri.path + '/' + relativeFolderPath;
+      }
+    }
+    } else {
+       const msg = '配置文件有误';
+       vscode.window.showInformationMessage(msg);
+    }
+  } else {
+    const msg = '请配置项目目标文件的相对路径';
+    vscode.window.showInformationMessage(msg);
+    return;
+  }
+  const instance = new SourceFiles(folderPath);
+  const filePaths = instance.getFilesPath();
+  console.log('fffff:', filePaths);
+  filePaths.forEach((filePath) => {
+    let file = null;
+    const filename = path.basename(filePath).split('.')[0];
+    try {
+      file = fs.readFileSync(filePath, { encoding: 'utf8' });
+      handleCompletionItem(file, filename, bareItems, items);
+    } catch (err: any) {
+      let str = '';
+      const message = err.message;
+      const stack = err.stack;
+      const configStr = JSON.stringify(err.config || {});
+      str = `error.message: ${message}\r\n
 					error.stack: ${stack}\r\n
-					error.config: ${config}`
-			vscode.window.showInformationMessage(str)
-			console.error('读取文件错误：', err)
-		}
-	});
-}
-// 处理远端文件（当前只针对gitlab）
-async function handleRemoteConfigFiles(configFiles: any[]): Promise<any[]> {
-	const rawRemoteFiles: any[] = [];
-	for (const fileInfo of configFiles) {
-		let { projectId = '', filePath = '', token = "", origin = "" } = fileInfo;
-		filePath = encodeURIComponent(filePath)
-		const url = `${origin}/api/v4/projects/${projectId}/repository/files/${filePath}?ref=master`;
-		try {
-			const result = await axios.get(url, {
-				headers: {
-					'PRIVATE-TOKEN': token
-				}
-			});
-			if (result && result.data) {
-				const { content: base64Content } = result.data;
-				const fileContent = decode(base64Content);
-				rawRemoteFiles.push(fileContent)
-			}
-		} catch (err) {
-			let str = '';
-			const message = err.message;
-			const stack = err.stack;
-			const config = JSON.stringify(err.config || {});
-			str = `error.message: ${message}\r\n
-					error.stack: ${stack}\r\n
-					error.config: ${config}`
-			vscode.window.showInformationMessage(str)
-			console.error('读取远端文件错误：', err)
-			continue;
-		}
-	};
-	return rawRemoteFiles
+					error.config: ${configStr}`;
+      vscode.window.showInformationMessage(str);
+      console.error('读取文件错误：', err);
+    }
+  });
 }
 
 // 对每一个资源文件生成CompletionItem
-function handleCompletionItem(file: any, bareItems: vscode.CompletionItem[], items: vscode.CompletionItem[]) {
-	// 去除资源里的注释
-	file = strip(file);
-	// 对资源文件做解析
-	const cssParsed = css.parse(file);
-	// 资源文件必须有根选择器
-	const rootRule: Rule | undefined = cssParsed.stylesheet?.rules.find((rule: Rule) => {
-		const isRuleType = rule.type = 'rule';
-		const rootSelectors = [':export', ':root'];
-		const hasRootSelector = rule?.selectors?.some(selector => rootSelectors.includes(selector));
+function handleCompletionItem(
+  file: any,
+  filename: string,
+  bareItems: vscode.CompletionItem[],
+  items: vscode.CompletionItem[]
+) {
+  // 去除资源里的注释
+  file = strip(file);
+  // 对资源文件做解析
+  const cssParsed = css.parse(file);
+  // 资源文件必须有根选择器
+  const rootRule: Rule | undefined = cssParsed.stylesheet?.rules.find(
+    (rule: Rule) => {
+      const isRuleType = (rule.type = 'rule');
+      const rootSelectors = [':export', ':root'];
+      const hasRootSelector = rule?.selectors?.some((selector) =>
+        rootSelectors.includes(selector)
+      );
 
-		return Boolean(isRuleType && hasRootSelector);
-	});
-	const declarations = rootRule?.declarations;
-	const variables = declarations?.filter((declaration: Declaration) => {
-		return Boolean(
-			declaration.type === 'declaration' &&
-			declaration?.property?.startsWith('--')
-		);
-	});
+      return Boolean(isRuleType && hasRootSelector);
+    }
+  );
+  const declarations = rootRule?.declarations;
+  const variables = declarations?.filter((declaration: Declaration) => {
+    return Boolean(
+      declaration.type === 'declaration' && declaration?.value?.startsWith('#')
+    );
+  });
 
-	variables?.forEach((variable: Declaration) => {
-		// For use when the user has already typed `var(`
-		const completionItemBare = new CompletionItem(variable.property!, vscode.CompletionItemKind.Variable);
-		// 变量的值
-		completionItemBare.detail = variable.value;
-		// 变量的属性
-		completionItemBare.insertText = variable.property;
-		bareItems.push(completionItemBare);
+  variables?.forEach((variable: Declaration) => {
+    const completionItemBare = new CompletionItem(
+      variable.value!,
+      vscode.CompletionItemKind.Variable
+    );
+    completionItemBare.detail = `主题：${filename} 变量：${variable.property} 色值：${variable.value}`;
+    completionItemBare.insertText = `var(${variable.property});`;
+    bareItems.push(completionItemBare);
 
-		const completionItem = new CompletionItem(variable.property!, vscode.CompletionItemKind.Variable);
+    const completionItem = new CompletionItem(
+      variable.property!,
+      vscode.CompletionItemKind.Variable
+    );
 
-		completionItem.detail = variable.value;
-		completionItem.insertText = `var(${variable.property})`;
+    completionItem.detail = `主题：${filename} 变量：${variable.property} 色值：${variable.value}`;
+    completionItem.insertText = `var(${variable.property});`;
 
-		items.push(completionItem);
-	});
+    items.push(completionItem);
+  });
 }
