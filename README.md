@@ -17,7 +17,7 @@ css 变量提示插件,通过输入`-` 或 `#`触发。
 
 变量文件需遵循的规则：目标文件里的变量必须用 `:root{}` 或 `:export{}`包括。
 
-![Demo](https://github.com/airbender92/css-variables-hints/blob/master/img/css-variable-hints.gif)
+![Demo](https://github.com/airbender92/css-variables-hints/blob/master/img/demo.png)
 
 Be sure that you have one of supported language modes selected in right bottom of your vscode window:
 * css
