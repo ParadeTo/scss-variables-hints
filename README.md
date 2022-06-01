@@ -29,9 +29,8 @@ Minimal configuration file:
 {
   ...
   // 本地资源变量文件路径
-  "cssVarriablesHints.files": {
-    packageName: "包名",
-    subPath: 'scss变量的相对路径'
+  "cssVarriablesHints.file": {
+    folderPath: "target folder's relative path to project",
   },
   ...
 };
@@ -47,14 +46,13 @@ Minimal configuration file:
 {
   ...
   // 本地资源变量文件路径列表
-  "cssVarriablesHints.file": { 
-    packageName: "@hatech/theme",
-    subPath: 'lib'
+  "cssVarriablesHints.file": {
+    "folderPath": "node_modules/@hatech/theme/lib",
   },
   ...
 };
 ```
 
 3. 在vue文件中写样式的时候，通过`-`或`#`触发提示，如果没有提示，(1)重启编辑器试下，(2)检查下`.vscode/settings.json`配置是否不正确。
-5. 具体用法看demo图.
+
 
