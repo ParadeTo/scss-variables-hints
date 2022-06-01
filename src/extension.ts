@@ -12,7 +12,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as css from 'css';
 import * as strip from 'strip-comments';
-import SourceFiles from './handleSource';
 import type { Rule, Declaration } from 'css';
 
 const { CompletionItem, CompletionList } = vscode;
@@ -32,11 +31,11 @@ export async function activate(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration('cssVarriablesHints');
   const configLanguageMods: Array<string> = config.get('languageModes') || [];
   // 处理本地变量
-  handleConfigFiles(editor, bareItems, items);
+  handleConfigFiles(bareItems, items);
   let completionProvider = vscode.languages.registerCompletionItemProvider(
     configLanguageMods.length
       ? configLanguageMods
-      : ['css', 'postcss', 'scss', 'less', 'vue'],
+      : ['css', 'postcss', 'scss', 'less', 'vue', 'react'],
     {
       async provideCompletionItems(document, position) {
         try {
@@ -111,29 +110,41 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(completionProvider);
 }
 
-function handleConfigFiles(
-  editor: any,
+async function handleConfigFiles(
   bareItems: vscode.CompletionItem[],
   items: vscode.CompletionItem[]
 ) {
-  let folderPath = '';
-  let relativeFolderPath = '';
-    const resource = editor.document.uri;
+  const isWin = process.platform === "win32";
     const config = vscode.workspace.getConfiguration('cssVarriablesHints');
   // 本地资源文件
-  const hasFilesInConfig = config && config.has('file');
+  const hasFilesInConfig = config && config.has('files');
+  let targetPaths: string[] = [];
   if (hasFilesInConfig) {
-    const configFile: { folderPath: string } | undefined = config.get('file');
-    if (typeof configFile === 'object') {
-      relativeFolderPath = configFile.folderPath || '';
-      if (resource.scheme === 'file') {
-      const folder: any = vscode.workspace.getWorkspaceFolder(resource);
-      if (folder) {
-        folderPath = folder.uri.path + '/' + relativeFolderPath;
+    const configFiles: { folderPath: string } | undefined = config.get('files');
+    if (Array.isArray(configFiles)) {
+      for (const regPath of configFiles) {
+        try {
+          const files = await vscode.workspace.findFiles(regPath);
+          if (files) {
+            const realFiles = files.filter(file => file.scheme === 'file');
+            realFiles.forEach(f => {
+              const filePath = (/^\//.test(f.path) && isWin) ? f.path.substring(1) : f.path;
+              targetPaths.push(filePath);
+            });
+          }
+        } catch (err: any) {
+           let str = '';
+      const message = err.message;
+      const stack = err.stack;
+      const configStr = JSON.stringify(err.config || {});
+      str = `error.message: ${message}\r\n
+					error.stack: ${stack}\r\n
+					error.config: ${configStr}`;
+      vscode.window.showInformationMessage(str);
+        }
       }
-    }
     } else {
-       const msg = '配置文件有误';
+       const msg = 'error config for "cssVarriablesHints.files" property in vscode setting file';
        vscode.window.showInformationMessage(msg);
     }
   } else {
@@ -141,10 +152,7 @@ function handleConfigFiles(
     vscode.window.showInformationMessage(msg);
     return;
   }
-  const instance = new SourceFiles(folderPath);
-  const filePaths = instance.getFilesPath();
-  console.log('fffff:', filePaths);
-  filePaths.forEach((filePath) => {
+  targetPaths.forEach((filePath) => {
     let file = null;
     const filename = path.basename(filePath).split('.')[0];
     try {
@@ -190,7 +198,7 @@ function handleCompletionItem(
   const declarations = rootRule?.declarations;
   const variables = declarations?.filter((declaration: Declaration) => {
     return Boolean(
-      declaration.type === 'declaration' && declaration?.value?.startsWith('#')
+      declaration.type === 'declaration' && declaration?.property?.startsWith('--')
     );
   });
 
@@ -199,7 +207,7 @@ function handleCompletionItem(
       variable.value!,
       vscode.CompletionItemKind.Variable
     );
-    completionItemBare.detail = `主题：${filename} 变量：${variable.property} 色值：${variable.value}`;
+    completionItemBare.detail = `【${filename}】 变量：${variable.property} 值：${variable.value}`;
     completionItemBare.insertText = `var(${variable.property});`;
     bareItems.push(completionItemBare);
 
@@ -208,7 +216,7 @@ function handleCompletionItem(
       vscode.CompletionItemKind.Variable
     );
 
-    completionItem.detail = `主题：${filename} 变量：${variable.property} 色值：${variable.value}`;
+    completionItem.detail = `【${filename}】 变量：${variable.property} 值：${variable.value}`;
     completionItem.insertText = `var(${variable.property});`;
 
     items.push(completionItem);
