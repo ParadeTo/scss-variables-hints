@@ -7,31 +7,32 @@
  * @FilePath: \hatech-web-css-hints\src\extension.ts
  */
 
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as css from 'css';
-import * as strip from 'strip-comments';
-import type { Rule, Declaration } from 'css';
+import * as vscode from 'vscode'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as scss from 'scss-parser'
+import * as strip from 'strip-comments'
+import type {Rule, Declaration} from 'css'
+import * as createQueryWrapper from 'query-ast'
 
-const { CompletionItem, CompletionList } = vscode;
+const {CompletionItem, CompletionList} = vscode
 
 export async function activate(context: vscode.ExtensionContext) {
-  const items: vscode.CompletionItem[] = [];
-  const bareItems: vscode.CompletionItem[] = [];
+  const items: vscode.CompletionItem[] = []
+  const bareItems: vscode.CompletionItem[] = []
   // workspace not selected
   if (!vscode.workspace.workspaceFolders) {
-    return;
+    return
   }
-  const editor = vscode.window.activeTextEditor;
+  const editor = vscode.window.activeTextEditor
   if (!editor || !vscode.workspace.workspaceFolders) {
-    return null;
+    return null
   }
 
-  const config = vscode.workspace.getConfiguration('cssVarriablesHints');
-  const configLanguageMods: Array<string> = config.get('languageModes') || [];
+  const config = vscode.workspace.getConfiguration('cssVarriablesHints')
+  const configLanguageMods: Array<string> = config.get('languageModes') || []
   // 处理本地变量
-  handleConfigFiles(bareItems, items);
+  handleConfigFiles(bareItems, items)
   let completionProvider = vscode.languages.registerCompletionItemProvider(
     configLanguageMods.length
       ? configLanguageMods
@@ -41,135 +42,137 @@ export async function activate(context: vscode.ExtensionContext) {
         try {
           let linePrefix = document
             .lineAt(position)
-            .text.substring(0, position.character);
-          let lineContent = document
-            .lineAt(position)
-            .text.substring(0);
-          const firstCharOfLinePosition = new vscode.Position(position.line, 0);
+            .text.substring(0, position.character)
+          let lineContent = document.lineAt(position).text.substring(0)
+          const firstCharOfLinePosition = new vscode.Position(position.line, 0)
           const withIndentBeforeCursorText =
             document.getText(
               new vscode.Range(firstCharOfLinePosition, position)
-            ) || '';
-          const list = withIndentBeforeCursorText.split(':');
-          let beforeCursorText = '';
+            ) || ''
+          const list = withIndentBeforeCursorText.split(':')
+          let beforeCursorText = ''
           if (list.length > 1) {
-            beforeCursorText = list[1].trim();
+            beforeCursorText = list[1].trim()
           } else {
-            beforeCursorText = list[0].trim();
+            beforeCursorText = list[0].trim()
           }
           if (!/(#|-)/.test(linePrefix)) {
-            return null;
+            return null
           }
 
-          let completionItems: vscode.CompletionItem[] = /^#/.test(beforeCursorText)
+          let completionItems: vscode.CompletionItem[] = /^#/.test(
+            beforeCursorText
+          )
             ? bareItems
-            : items;
-          let dashPosition = null;
-          let dashPosition2 = null;
-          let range: vscode.Range | null = null;
+            : items
+          let dashPosition = null
+          let dashPosition2 = null
+          let range: vscode.Range | null = null
           if (beforeCursorText.startsWith('#')) {
             dashPosition = new vscode.Position(
               position.line,
               withIndentBeforeCursorText.indexOf('#')
-            );
+            )
             dashPosition2 = new vscode.Position(
               position.line,
               lineContent.length
-            );
-            range = new vscode.Range(dashPosition, dashPosition2);
+            )
+            range = new vscode.Range(dashPosition, dashPosition2)
           } else if (beforeCursorText.startsWith('-')) {
             dashPosition = new vscode.Position(
               position.line,
               withIndentBeforeCursorText.lastIndexOf('-')
-            );
+            )
             dashPosition2 = new vscode.Position(
               position.line,
               lineContent.length
-            );
-            range = new vscode.Range(dashPosition, dashPosition2);
+            )
+            range = new vscode.Range(dashPosition, dashPosition2)
           }
           completionItems = completionItems.map((item) => {
             if (range === null) {
-              return item;
+              return item
             } else {
               return {
                 ...item,
                 range,
-              };
+              }
             }
-          });
-          return new CompletionList(completionItems);
+          })
+          return new CompletionList(completionItems)
         } catch (err) {
-          console.log(err);
+          console.log(err)
         }
       },
     },
     ...['-', '#']
-  );
+  )
 
-  context.subscriptions.push(completionProvider);
+  context.subscriptions.push(completionProvider)
 }
 
 async function handleConfigFiles(
   bareItems: vscode.CompletionItem[],
   items: vscode.CompletionItem[]
 ) {
-  const isWin = process.platform === "win32";
-    const config = vscode.workspace.getConfiguration('cssVarriablesHints');
+  const isWin = process.platform === 'win32'
+  const config = vscode.workspace.getConfiguration('cssVarriablesHints')
   // 本地资源文件
-  const hasFilesInConfig = config && config.has('files');
-  let targetPaths: string[] = [];
+  const hasFilesInConfig = config && config.has('files')
+  let targetPaths: string[] = []
   if (hasFilesInConfig) {
-    const configFiles: { folderPath: string } | undefined = config.get('files');
+    const configFiles: {folderPath: string} | undefined = config.get('files')
     if (Array.isArray(configFiles)) {
       for (const regPath of configFiles) {
         try {
-          const files = await vscode.workspace.findFiles(regPath);
+          const files = await vscode.workspace.findFiles(regPath)
           if (files) {
-            const realFiles = files.filter(file => file.scheme === 'file');
-            realFiles.forEach(f => {
-              const filePath = (/^\//.test(f.path) && isWin) ? f.path.substring(1) : f.path;
-              targetPaths.push(filePath);
-            });
+            const realFiles = files.filter((file) => file.scheme === 'file')
+            realFiles.forEach((f) => {
+              const filePath =
+                /^\//.test(f.path) && isWin ? f.path.substring(1) : f.path
+              targetPaths.push(filePath)
+            })
           }
         } catch (err: any) {
-           let str = '';
-      const message = err.message;
-      const stack = err.stack;
-      const configStr = JSON.stringify(err.config || {});
-      str = `error.message: ${message}\r\n
+          let str = ''
+          const message = err.message
+          const stack = err.stack
+          const configStr = JSON.stringify(err.config || {})
+          str = `error.message: ${message}\r\n
 					error.stack: ${stack}\r\n
-					error.config: ${configStr}`;
-      vscode.window.showInformationMessage(str);
+					error.config: ${configStr}`
+          vscode.window.showInformationMessage(str)
         }
       }
     } else {
-       const msg = 'error config for "cssVarriablesHints.files" property in vscode setting file';
-       vscode.window.showInformationMessage(msg);
+      const msg =
+        'error config for "cssVarriablesHints.files" property in vscode setting file'
+      vscode.window.showInformationMessage(msg)
     }
   } else {
-    const msg = '请配置项目目标文件的相对路径';
-    vscode.window.showInformationMessage(msg);
-    return;
+    const msg = '请配置项目目标文件的相对路径'
+    vscode.window.showInformationMessage(msg)
+    return
   }
   targetPaths.forEach((filePath) => {
-    let file = null;
-    const filename = path.basename(filePath).split('.')[0];
+    let file = null
+    const filename = path.basename(filePath).split('.')[0]
     try {
-      file = fs.readFileSync(filePath, { encoding: 'utf8' });
-      handleCompletionItem(file, filename, bareItems, items);
+      file = fs.readFileSync(filePath, {encoding: 'utf8'})
+      handleCompletionItem(file, filename, bareItems, items)
     } catch (err: any) {
-      let str = '';
-      const message = err.message;
-      const stack = err.stack;
-      const configStr = JSON.stringify(err.config || {});
+      let str = ''
+      const message = err.message
+      const stack = err.stack
+      const configStr = JSON.stringify(err.config || {})
       str = `error.message: ${message}\r\n
 					error.stack: ${stack}\r\n
-					error.config: ${configStr}`;
-      vscode.window.showInformationMessage(str);
-      console.error('读取文件错误：', err);
+					error.config: ${configStr}`
+      vscode.window.showInformationMessage(str)
+      console.error('读取文件错误：', err)
     }
-  });
+  })
 }
 
 // 对每一个资源文件生成CompletionItem
@@ -180,45 +183,52 @@ function handleCompletionItem(
   items: vscode.CompletionItem[]
 ) {
   // 去除资源里的注释
-  file = strip(file);
+  file = strip(file)
   // 对资源文件做解析
-  const cssParsed = css.parse(file);
+  const cssParsed = scss.parse(file)
+  const $ = createQueryWrapper(cssParsed)
   // 资源文件必须有根选择器
   const rootRule: Rule | undefined = cssParsed.stylesheet?.rules.find(
     (rule: Rule) => {
-      const isRuleType = (rule.type = 'rule');
-      const rootSelectors = [':export', ':root'];
+      const isRuleType = (rule.type = 'rule')
+      const rootSelectors = [':export', ':root']
       const hasRootSelector = rule?.selectors?.some((selector) =>
         rootSelectors.includes(selector)
-      );
+      )
 
-      return Boolean(isRuleType && hasRootSelector);
+      return Boolean(isRuleType && hasRootSelector)
     }
-  );
-  const declarations = rootRule?.declarations;
-  const variables = declarations?.filter((declaration: Declaration) => {
-    return Boolean(
-      declaration.type === 'declaration' && declaration?.property?.startsWith('--')
-    );
-  });
+  )
+  const declarations = $('declaration')
+  const variables = declarations?.filter((declaration) => {
+    return scss
+      .stringify(createQueryWrapper(declaration.node)('property').nodes[0].node)
+      .startsWith('--')
+  })
 
-  variables?.forEach((variable: Declaration) => {
+  variables?.nodes.forEach((declaration) => {
+    const property = scss.stringify(
+      createQueryWrapper(declaration.node)('property').nodes[0].node
+    )
+    const value = scss
+      .stringify(createQueryWrapper(declaration.node)('value').nodes[0].node)
+      .trim()
     const completionItemBare = new CompletionItem(
-      variable.value!,
+      property!,
       vscode.CompletionItemKind.Variable
-    );
-    completionItemBare.detail = `【${filename}】 变量：${variable.property} 值：${variable.value}`;
-    completionItemBare.insertText = `var(${variable.property});`;
-    bareItems.push(completionItemBare);
+    )
+    completionItemBare.detail = `【${filename}】 变量：${property} 值：${value}`
+    completionItemBare.insertText = `var(${property});`
+    bareItems.push(completionItemBare)
 
     const completionItem = new CompletionItem(
-      variable.property!,
+      property!,
       vscode.CompletionItemKind.Variable
-    );
+    )
 
-    completionItem.detail = `【${filename}】 变量：${variable.property} 值：${variable.value}`;
-    completionItem.insertText = `var(${variable.property});`;
+    completionItem.detail = `【${filename}】 变量：${property} 值：${value}`
+    completionItem.insertText = `var(${property});`
 
-    items.push(completionItem);
-  });
+    items.push(completionItem)
+  })
 }
